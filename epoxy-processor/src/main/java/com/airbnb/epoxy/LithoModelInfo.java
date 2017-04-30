@@ -23,7 +23,7 @@ class LithoModelInfo extends GeneratedModelInfo {
 
     generatedClassName = buildGeneratedModelName(lithoComponentName);
     // We don't have any type parameters on our generated litho model
-    this.parameterizedClassName = generatedClassName;
+    this.parametrizedClassName = generatedClassName;
     shouldGenerateModel = true;
     generateFieldsForAttributes = true;
 

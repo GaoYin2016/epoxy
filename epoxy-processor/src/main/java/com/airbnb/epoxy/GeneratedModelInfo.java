@@ -34,7 +34,7 @@ abstract class GeneratedModelInfo {
 
   protected TypeName superClassName;
   protected TypeElement superClassElement;
-  protected TypeName parameterizedClassName;
+  protected TypeName parametrizedClassName;
   protected ClassName generatedClassName;
   protected TypeName boundObjectTypeName;
   protected boolean shouldGenerateModel;
@@ -147,7 +147,7 @@ abstract class GeneratedModelInfo {
   }
 
   TypeName getParameterizedGeneratedName() {
-    return parameterizedClassName;
+    return parametrizedClassName;
   }
 
   /**

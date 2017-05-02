@@ -11,9 +11,9 @@ import com.airbnb.epoxy.R;
 import com.airbnb.epoxy.ResetView;
 
 @ModelView(defaultLayout = R.layout.model_header)
-public class TestView extends AppCompatTextView {
+public class EliView extends AppCompatTextView {
 
-  public TestView(Context context, @Nullable AttributeSet attrs) {
+  public EliView(Context context, @Nullable AttributeSet attrs) {
     super(context, attrs);
   }
 

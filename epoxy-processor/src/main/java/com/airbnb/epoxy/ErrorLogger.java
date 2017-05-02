@@ -30,7 +30,7 @@ class ErrorLogger {
     if (!(e instanceof EpoxyProcessorException)) {
       e = new EpoxyProcessorException(e, message + " : " + e);
     }
-    loggedExceptions.add(e);
+    logError(e);
   }
 
   void logError(String msg, Object... args) {

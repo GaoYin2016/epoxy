@@ -2,6 +2,7 @@ package com.airbnb.epoxy;
 
 import com.squareup.javapoet.ClassName;
 import com.sun.source.util.Trees;
+import com.sun.tools.internal.ws.processor.model.ModelVisitor;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.tree.JCTree;
@@ -128,6 +129,8 @@ class LayoutResourceProcessor {
       for (int layoutRes : ((EpoxyDataBindingLayouts) annotation).value()) {
         layoutResources.add(layoutRes);
       }
+    } else if (annotation instanceof ModelView) {
+      layoutResources.add(((ModelView) annotation).defaultLayout());
     }
 
     return layoutResources;

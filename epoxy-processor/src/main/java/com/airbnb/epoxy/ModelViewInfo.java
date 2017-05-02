@@ -18,11 +18,13 @@ import static java.lang.Character.toLowerCase;
 
 class ModelViewInfo extends GeneratedModelInfo {
   private final List<String> resetMethodNames = new ArrayList<>();
-  private static final Pattern PATTERN_STARTS_WITH_SET = Pattern.compile("set[w]+");
+  private static final Pattern PATTERN_STARTS_WITH_SET = Pattern.compile("set[A-Z]\\w*");
+  private final TypeElement viewElement;
 
   ModelViewInfo(TypeElement viewElement, Types typeUtils, Elements elementUtils) {
+    this.viewElement = viewElement;
     superClassElement =
-        (TypeElement) ProcessorUtils.getElementByName(ProcessorUtils.EPOXY_MODEL_TYPE,
+        (TypeElement) ProcessorUtils.getElementByName(ClassNames.EPOXY_MODEL_UNTYPED,
             elementUtils, typeUtils);
 
     this.superClassName = ParameterizedTypeName
@@ -54,41 +56,28 @@ class ModelViewInfo extends GeneratedModelInfo {
   }
 
   void addProp(ExecutableElement propMethod) {
-    List<? extends VariableElement> parameters = propMethod.getParameters();
-    VariableElement param = parameters.get(0);
+    VariableElement param = propMethod.getParameters().get(0);
 
     String methodName = propMethod.getSimpleName().toString();
     if (PATTERN_STARTS_WITH_SET.matcher(methodName).matches()) {
-      methodName = methodName.replace("set", "");
-      methodName = toLowerCase(methodName.charAt(0)) + methodName.substring(1);
+      methodName = toLowerCase(methodName.charAt(3)) + methodName.substring(4);
     }
 
-      // TODO: (eli_hart 4/28/17) optional/nullable support along with default value
+    // TODO: (eli_hart 4/28/17) optional/nullable support along with default value
 
     // TODO: (eli_hart 4/28/17) check for other setters of the same name
     addAttribute(new ViewAttributeInfo(this, methodName, param));
   }
 
-  static class ViewAttributeInfo extends AttributeInfo {
-
-    ViewAttributeInfo(ModelViewInfo modelInfo, String name, VariableElement paramElement) {
-      this.name = name;
-      typeName = TypeName.get(paramElement.asType());
-      typeMirror = paramElement.asType();
-      modelName = modelInfo.getGeneratedName().simpleName();
-      modelPackageName = modelInfo.generatedClassName.packageName();
-      useInHash = true; // TODO: (eli_hart 4/26/17) We should come up with a way to exclude things
-      // from the hash (like click listeners). One option is to exclude it if it the type doesn't
-      // implement hashCode
-      ignoreRequireHashCode = false;
-      generateSetter = true;
-      generateGetter = true;
-      hasFinalModifier = false;
-      packagePrivate = false;
-    }
-  }
-
   void addResetMethod(ExecutableElement resetMethod) {
     resetMethodNames.add(resetMethod.getSimpleName().toString());
+  }
+
+  LayoutResource getLayoutResource(LayoutResourceProcessor layoutResourceProcessor) {
+    return layoutResourceProcessor.getLayoutInAnnotation(viewElement, ModelView.class);
+  }
+
+  List<String> getResetMethodNames() {
+    return resetMethodNames;
   }
 }

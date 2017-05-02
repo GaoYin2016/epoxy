@@ -463,6 +463,8 @@ class GeneratedModelWriter {
     LayoutResource layout;
     if (modelInfo instanceof DataBindingModelInfo) {
       layout = ((DataBindingModelInfo) modelInfo).getLayoutResource();
+    } else if (modelInfo instanceof ModelViewInfo) {
+      layout = ((ModelViewInfo) modelInfo).getLayoutResource(layoutResourceProcessor);
     } else {
 
       TypeElement superClassElement = modelInfo.getSuperClassElement();

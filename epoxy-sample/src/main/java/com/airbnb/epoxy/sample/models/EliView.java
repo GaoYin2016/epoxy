@@ -1,7 +1,10 @@
 package com.airbnb.epoxy.sample.models;
 
 import android.content.Context;
+import android.support.annotation.AnyRes;
+import android.support.annotation.FloatRange;
 import android.support.annotation.Nullable;
+import android.support.annotation.StringRes;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
 
@@ -18,8 +21,7 @@ public class EliView extends AppCompatTextView {
   }
 
   @ModelProp
-  public void setTitle(CharSequence text) {
-    setText(text);
+  public void setTitle(@Nullable @FloatRange(from = 0.0f, to = 1.0f) float text) {
   }
 
   @ResetView

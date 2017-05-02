@@ -1,10 +1,13 @@
 package com.airbnb.epoxy;
 
 import com.airbnb.epoxy.GeneratedModelWriter.BeforeBuildCallback;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec.Builder;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,22 +21,30 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import static com.airbnb.epoxy.ProcessorUtils.isSubtypeOfType;
+import static com.airbnb.epoxy.ProcessorUtils.isType;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 
+// TODO: (eli_hart 5/1/17) How to create view: layout resource from view annotation?
+// TODO: (eli_hart 5/1/17) configuration for default layout resource name
+// TODO: (eli_hart 5/1/17) Default model name? Should we allow customization?
+// TODO: (eli_hart 5/1/17) custom base class or interfaces
+// TODO: (eli_hart 5/1/17) default value for optional primitives
+// TODO: (eli_hart 5/3/17) should saved view state
+// TODO: (eli_hart 5/3/17) span count
 class ModelViewProcessor {
-  private final Elements elementUtils;
-  private final Types typeUtils;
+  private final Elements elements;
+  private final Types types;
   private final ConfigManager configManager;
   private final ErrorLogger errorLogger;
   private final GeneratedModelWriter modelWriter;
   private final Map<Element, ModelViewInfo> modelClassMap = new LinkedHashMap<>();
 
-  ModelViewProcessor(Elements elementUtils, Types typeUtils, ConfigManager configManager,
+  ModelViewProcessor(Elements elements, Types types, ConfigManager configManager,
       ErrorLogger errorLogger, GeneratedModelWriter modelWriter) {
 
-    this.elementUtils = elementUtils;
-    this.typeUtils = typeUtils;
+    this.elements = elements;
+    this.types = types;
     this.configManager = configManager;
     this.errorLogger = errorLogger;
     this.modelWriter = modelWriter;
@@ -61,7 +72,7 @@ class ModelViewProcessor {
         }
 
         modelClassMap.put(viewElement,
-            new ModelViewInfo((TypeElement) viewElement, typeUtils, elementUtils));
+            new ModelViewInfo((TypeElement) viewElement, types, elements));
       } catch (Exception e) {
         errorLogger.logError(e, "Error creating model view info classes.");
       }
@@ -116,6 +127,29 @@ class ModelViewProcessor {
 
       info.addProp((ExecutableElement) propMethod);
     }
+    addStringResOverloads();
+  }
+
+  /**
+   * Add a StringRes attribute if an existing attribute type is String or CharSequence and there
+   * isn't already a string res setter with the same name.
+   */
+  private void addStringResOverloads() {
+    for (ModelViewInfo viewInfo : modelClassMap.values()) {
+      List<ViewAttributeStringResOverload> overloads = new ArrayList<>();
+
+      for (AttributeInfo attributeInfo : viewInfo.attributeInfo) {
+        if (isType(elements, types, attributeInfo.typeMirror, String.class, CharSequence.class)) {
+
+          AttributeInfo matcher = new AttributeInfoMatcher(attributeInfo.name, TypeName.INT);
+          if (!viewInfo.attributeInfo.contains(matcher)) {
+            // Add the new attribute after the for loop to prevent concurrent modification
+            overloads.add(new ViewAttributeStringResOverload((ViewAttributeInfo) attributeInfo,
+                elements));
+          }
+        }
+      }
+    }
   }
 
   private boolean validatePropElement(Element methodElement) {
@@ -127,24 +161,24 @@ class ModelViewProcessor {
     if (!(element instanceof ExecutableElement)) {
       errorLogger.logError("%s annotations can only be on a method (element: %s)", annotationClass,
           element.getSimpleName());
-      return true;
+      return false;
     }
 
     ExecutableElement executableElement = (ExecutableElement) element;
     if (executableElement.getParameters().size() != paramCount) {
       errorLogger.logError("Methods annotated with %s must have exactly %s parameter (method: %s)",
           annotationClass, paramCount, element.getSimpleName());
-      return true;
+      return false;
     }
 
     Set<Modifier> modifiers = element.getModifiers();
     if (modifiers.contains(STATIC) || modifiers.contains(PRIVATE)) {
       errorLogger.logError("Methods annotated with %s cannot be private or static (method: %s)",
           annotationClass, element.getSimpleName());
-      return true;
+      return false;
     }
 
-    return false;
+    return true;
   }
 
   private void processResetAnnotations(RoundEnvironment roundEnv) {
@@ -175,6 +209,11 @@ class ModelViewProcessor {
           @Override
           public void modifyBuilder(Builder builder) {
             addResetMethodsToBuilder(builder, modelViewInfo);
+            // TODO: (eli_hart 5/1/17) add bind method that sets values
+            // TODO: (eli_hart 5/1/17) add bind with payload
+            // TODO: (eli_hart 5/1/17) add default values to fields
+            // TODO: (eli_hart 5/1/17) if method is not nullable make sure it is set (or one of
+            // it's overloads is set)
           }
         });
       } catch (Exception e) {
@@ -186,7 +225,7 @@ class ModelViewProcessor {
 
   private void addResetMethodsToBuilder(Builder builder, ModelViewInfo modelViewInfo) {
     for (String methodName : modelViewInfo.getResetMethodNames()) {
-
+      // TODO: (eli_hart 5/1/17) add unbind method and call reset methods
     }
   }
 

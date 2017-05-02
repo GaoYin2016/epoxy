@@ -64,12 +64,16 @@ class ProcessorUtils {
     }
   }
 
-  static Element getElementByName(ClassName name, Elements elements, Types types) {
+  static TypeMirror getTypeMirror(Class<?> clazz, Elements elements) {
     try {
-      return elements.getTypeElement(name.reflectionName());
+      return elements.getTypeElement(clazz.getCanonicalName()).asType();
     } catch (MirroredTypeException mte) {
-      return types.asElement(mte.getTypeMirror());
+      return mte.getTypeMirror();
     }
+  }
+
+  static Element getElementByName(ClassName name, Elements elements, Types types) {
+    return getElementByName(name.reflectionName(), elements, types);
   }
 
   static Element getElementByName(String name, Elements elements, Types types) {
@@ -333,5 +337,20 @@ class ProcessorUtils {
   static boolean startsWithIs(String original) {
     return original.startsWith("is") && original.length() > 2
         && Character.isUpperCase(original.charAt(2));
+  }
+
+  static boolean isType(Elements elements, Types types, TypeMirror typeMirror, Class<?> clazz) {
+    TypeMirror classType = getTypeMirror(clazz, elements);
+    return types.isSameType(typeMirror, classType);
+  }
+
+  static boolean isType(Elements elements, Types types, TypeMirror typeMirror,
+      Class<?>... typeNames) {
+    for (Class<?> clazz : typeNames) {
+      if (isType(elements, types, typeMirror, clazz)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -69,9 +69,31 @@ class GeneratedModelWriter {
   private final LayoutResourceProcessor layoutResourceProcessor;
   private final ConfigManager configManager;
   private final DataBindingModuleLookup dataBindingModuleLookup;
+  private BuilderHooks builderHooks;
 
-  interface BeforeBuildCallback {
-    void modifyBuilder(TypeSpec.Builder builder);
+  static class BuilderHooks {
+    void beforeFinalBuild(TypeSpec.Builder builder) {
+    }
+
+    /** Opportunity to add additional code to the unbind method. */
+    void addToUnbindMethod(Builder unbindBuilder, String unbindParamName) {
+
+    }
+
+    /**
+     * True true to have the bind method build, false to not add the method to the generated class.
+     */
+    boolean addToBindMethod(Builder methodBuilder, ParameterSpec boundObjectParam) {
+      return false;
+    }
+
+    /**
+     * True true to have the bind method build, false to not add the method to the generated class.
+     */
+    boolean addToBindWithDiffMethod(Builder methodBuilder, ParameterSpec boundObjectParam,
+        ParameterSpec previousModelParam) {
+      return false;
+    }
   }
 
   GeneratedModelWriter(Filer filer, Types typeUtils, Elements elementUtils, ErrorLogger errorLogger,
@@ -87,11 +109,12 @@ class GeneratedModelWriter {
   }
 
   void generateClassForModel(GeneratedModelInfo info) throws IOException {
-    generateClassForModel(info, null);
+    generateClassForModel(info, new BuilderHooks());
   }
 
-  void generateClassForModel(GeneratedModelInfo info, BeforeBuildCallback beforeBuildCallback)
+  void generateClassForModel(GeneratedModelInfo info, BuilderHooks builderHooks)
       throws IOException {
+    this.builderHooks = builderHooks;
     if (!info.shouldGenerateModel()) {
       return;
     }
@@ -118,9 +141,7 @@ class GeneratedModelWriter {
         .addMethod(generateHashCode(info))
         .addMethod(generateToString(info));
 
-    if (beforeBuildCallback != null) {
-      beforeBuildCallback.modifyBuilder(builder);
-    }
+    builderHooks.beforeFinalBuild(builder);
 
     JavaFile.builder(info.getGeneratedName().packageName(), builder.build())
         .build()
@@ -288,6 +309,30 @@ class GeneratedModelWriter {
 
     methods.add(preBindBuilder.build());
 
+    Builder bindBuilder = MethodSpec.methodBuilder("bind")
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC)
+        .addParameter(boundObjectParam)
+        .addStatement("super.bind($L)", boundObjectParam.name);
+
+    if (builderHooks.addToBindMethod(bindBuilder, boundObjectParam)) {
+      methods.add(bindBuilder.build());
+    }
+
+    ParameterSpec previousModelParam =
+        ParameterSpec.builder(getClassName(UNTYPED_EPOXY_MODEL_TYPE), "previousModel").build();
+
+    Builder bindWithDiffBuilder = MethodSpec.methodBuilder("bind")
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC)
+        .addParameter(boundObjectParam)
+        .addParameter(previousModelParam);
+
+    if (builderHooks
+        .addToBindWithDiffMethod(bindWithDiffBuilder, boundObjectParam, previousModelParam)) {
+      methods.add(bindWithDiffBuilder.build());
+    }
+
     Builder postBindBuilder = MethodSpec.methodBuilder("handlePostBind")
         .addModifiers(PUBLIC)
         .addAnnotation(Override.class)
@@ -329,8 +374,9 @@ class GeneratedModelWriter {
 
     methods.add(onBind.build());
 
+    String unbindParamName = "object";
     ParameterSpec unbindObjectParam =
-        ParameterSpec.builder(classInfo.getModelType(), "object").build();
+        ParameterSpec.builder(classInfo.getModelType(), unbindParamName).build();
 
     Builder unbindBuilder = MethodSpec.methodBuilder("unbind")
         .addAnnotation(Override.class)
@@ -342,6 +388,8 @@ class GeneratedModelWriter {
         .beginControlFlow("if ($L != null)", modelUnbindListenerFieldName())
         .addStatement("$L.onModelUnbound(this, object)", modelUnbindListenerFieldName())
         .endControlFlow();
+
+    builderHooks.addToUnbindMethod(unbindBuilder, unbindParamName);
 
     methods.add(unbindBuilder
         .build());
@@ -745,14 +793,14 @@ class GeneratedModelWriter {
         .build();
   }
 
-  private static MethodSpec.Builder startNotEqualsControlFlow(MethodSpec.Builder methodBuilder,
+  static MethodSpec.Builder startNotEqualsControlFlow(MethodSpec.Builder methodBuilder,
       AttributeInfo attribute) {
     TypeName attributeType = attribute.getTypeName();
     boolean useHash = attributeType.isPrimitive() || attribute.useInHash();
     return startNotEqualsControlFlow(methodBuilder, useHash, attributeType, attribute.getterCode());
   }
 
-  private static MethodSpec.Builder startNotEqualsControlFlow(Builder builder,
+  static MethodSpec.Builder startNotEqualsControlFlow(Builder builder,
       boolean useObjectHashCode, TypeName type, String accessorCode) {
 
     if (useObjectHashCode) {
@@ -883,7 +931,7 @@ class GeneratedModelWriter {
   }
 
   private MethodSpec generateGetter(AttributeInfo data) {
-    return MethodSpec.methodBuilder(data.getName())
+    return MethodSpec.methodBuilder(data.generatedGetterName())
         .addModifiers(PUBLIC)
         .returns(data.getTypeName())
         .addAnnotations(data.getGetterAnnotations())
@@ -893,14 +941,15 @@ class GeneratedModelWriter {
 
   private MethodSpec generateSetter(GeneratedModelInfo helperClass, AttributeInfo attribute) {
     String attributeName = attribute.getName();
-    Builder builder = MethodSpec.methodBuilder(attributeName)
+    Builder builder = MethodSpec.methodBuilder(attribute.generatedSetterName())
         .addModifiers(PUBLIC)
         .returns(helperClass.getParameterizedGeneratedName())
-        .addParameter(ParameterSpec.builder(attribute.getTypeName(), attributeName)
-            .addAnnotations(attribute.getSetterAnnotations()).build());
+        .addParameter(
+            ParameterSpec.builder(attribute.getTypeName(), attribute.generatedSetterName())
+                .addAnnotations(attribute.getSetterAnnotations()).build());
 
     addOnMutationCall(builder)
-        .addStatement("this." + attribute.setterCode(), attributeName);
+        .addStatement("this." + attribute.setterCode(), attribute.generatedSetterName());
 
     if (attribute.isViewClickListener()) {
       // Null out the model click listener since this view click listener should replace it
@@ -908,7 +957,7 @@ class GeneratedModelWriter {
     }
 
     if (attribute.hasSuperSetterMethod()) {
-      builder.addStatement("super.$L($L)", attributeName, attributeName);
+      builder.addStatement("super.$L($L)", attributeName, attribute.generatedSetterName());
     }
 
     return builder

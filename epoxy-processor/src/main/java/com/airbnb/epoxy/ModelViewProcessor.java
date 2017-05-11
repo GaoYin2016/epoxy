@@ -1,8 +1,10 @@
 package com.airbnb.epoxy;
 
-import com.airbnb.epoxy.GeneratedModelWriter.BeforeBuildCallback;
+import com.airbnb.epoxy.GeneratedModelWriter.BuilderHooks;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.MethodSpec.Builder;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeSpec.Builder;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,9 +29,10 @@ import static javax.lang.model.element.Modifier.STATIC;
 
 // TODO: (eli_hart 5/1/17) How to create view: layout resource from view annotation?
 // TODO: (eli_hart 5/1/17) configuration for default layout resource name
-// TODO: (eli_hart 5/1/17) Default model name? Should we allow customization?
+// TODO: (eli_hart 5/1/17) Default model name? Shoumonild we allow customization?
 // TODO: (eli_hart 5/1/17) custom base class or interfaces
 // TODO: (eli_hart 5/1/17) default value for optional primitives
+// TODO: (eli_hart 5/1/17) validate non nullable fields are set
 // TODO: (eli_hart 5/3/17) should saved view state
 // TODO: (eli_hart 5/3/17) span count
 class ModelViewProcessor {
@@ -144,10 +147,15 @@ class ModelViewProcessor {
           AttributeInfo matcher = new AttributeInfoMatcher(attributeInfo.name, TypeName.INT);
           if (!viewInfo.attributeInfo.contains(matcher)) {
             // Add the new attribute after the for loop to prevent concurrent modification
-            overloads.add(new ViewAttributeStringResOverload((ViewAttributeInfo) attributeInfo,
-                elements));
+            overloads.add(
+                new ViewAttributeStringResOverload(viewInfo, (ViewAttributeInfo) attributeInfo,
+                    types));
           }
         }
+      }
+
+      for (ViewAttributeStringResOverload overload : overloads) {
+        viewInfo.attributeInfo.add(overload);
       }
     }
   }
@@ -205,15 +213,25 @@ class ModelViewProcessor {
   private void writeJava() {
     for (final ModelViewInfo modelViewInfo : modelClassMap.values()) {
       try {
-        modelWriter.generateClassForModel(modelViewInfo, new BeforeBuildCallback() {
+        modelWriter.generateClassForModel(modelViewInfo, new BuilderHooks() {
           @Override
-          public void modifyBuilder(Builder builder) {
-            addResetMethodsToBuilder(builder, modelViewInfo);
-            // TODO: (eli_hart 5/1/17) add bind method that sets values
-            // TODO: (eli_hart 5/1/17) add bind with payload
-            // TODO: (eli_hart 5/1/17) add default values to fields
-            // TODO: (eli_hart 5/1/17) if method is not nullable make sure it is set (or one of
-            // it's overloads is set)
+          boolean addToBindMethod(Builder methodBuilder, ParameterSpec boundObjectParam) {
+            for (AttributeInfo attributeInfo : modelViewInfo.attributeInfo) {
+              methodBuilder.addStatement("$L.$L($L)", boundObjectParam.name, attributeInfo.getName())
+            }
+            return true;
+          }
+
+          @Override
+          boolean addToBindWithDiffMethod(Builder methodBuilder, ParameterSpec boundObjectParam,
+              ParameterSpec previousModelParam) {
+            return super
+                .addToBindWithDiffMethod(methodBuilder, boundObjectParam, previousModelParam);
+          }
+
+          @Override
+          void addToUnbindMethod(MethodSpec.Builder unbindBuilder, String unbindParamName) {
+            addResetMethodsToBuilder(unbindBuilder, modelViewInfo, unbindParamName);
           }
         });
       } catch (Exception e) {
@@ -223,9 +241,10 @@ class ModelViewProcessor {
     }
   }
 
-  private void addResetMethodsToBuilder(Builder builder, ModelViewInfo modelViewInfo) {
+  private void addResetMethodsToBuilder(Builder builder, ModelViewInfo modelViewInfo,
+      String unbindParamName) {
     for (String methodName : modelViewInfo.getResetMethodNames()) {
-      // TODO: (eli_hart 5/1/17) add unbind method and call reset methods
+      builder.addStatement(unbindParamName + "." + methodName + "()");
     }
   }
 

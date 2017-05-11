@@ -1,6 +1,6 @@
 package com.airbnb.epoxy;
 
-import com.airbnb.epoxy.GeneratedModelWriter.BeforeBuildCallback;
+import com.airbnb.epoxy.GeneratedModelWriter.BuilderHooks;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec.Builder;
@@ -77,9 +77,9 @@ class LithoSpecProcessor {
     for (Entry<TypeElement, LithoModelInfo> modelInfoEntry : modelInfoMap.entrySet()) {
       try {
         final LithoModelInfo modelInfo = modelInfoEntry.getValue();
-        modelWriter.generateClassForModel(modelInfo, new BeforeBuildCallback() {
+        modelWriter.generateClassForModel(modelInfo, new BuilderHooks() {
           @Override
-          public void modifyBuilder(Builder builder) {
+          public void beforeFinalBuild(Builder builder) {
             updateGeneratedClassForLithoComponent(modelInfo, builder);
           }
         });

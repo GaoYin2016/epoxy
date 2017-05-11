@@ -48,10 +48,6 @@ class ModelViewInfo extends GeneratedModelInfo {
     String packageName = elementUtils.getPackageOf(viewElement).getQualifiedName().toString();
 
     String className = viewElement.getSimpleName().toString();
-    if (className.endsWith("View")) {
-      className = className.substring(0, className.lastIndexOf("View"));
-    }
-
     className += "Model" + GENERATED_CLASS_NAME_SUFFIX;
 
     return ClassName.get(packageName, className);
@@ -60,15 +56,15 @@ class ModelViewInfo extends GeneratedModelInfo {
   void addProp(ExecutableElement propMethod) {
     VariableElement param = propMethod.getParameters().get(0);
 
-    String methodName = propMethod.getSimpleName().toString();
-    if (PATTERN_STARTS_WITH_SET.matcher(methodName).matches()) {
-      methodName = toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+    String propName = propMethod.getSimpleName().toString();
+    if (PATTERN_STARTS_WITH_SET.matcher(propName).matches()) {
+      propName = toLowerCase(propName.charAt(3)) + propName.substring(4);
     }
 
     // TODO: (eli_hart 4/28/17) optional/nullable support along with default value
 
     // TODO: (eli_hart 4/28/17) check for other setters of the same name
-    addAttribute(new ViewAttributeInfo(this, methodName, param, typeUtils));
+    addAttribute(new ViewAttributeInfo(this, propName, param, typeUtils));
   }
 
   void addResetMethod(ExecutableElement resetMethod) {

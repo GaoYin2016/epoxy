@@ -92,6 +92,14 @@ abstract class AttributeInfo {
     return isPrivate ? setterMethodName + "($L)" : name + " = $L";
   }
 
+  String generatedSetterName() {
+    return name;
+  }
+
+  String generatedGetterName() {
+    return name;
+  }
+
   @Override
   public String toString() {
     return "ModelAttributeData{"
